@@ -23,11 +23,12 @@ fn main() {
     println!("Novo saldo de Alice: {}", balance.balance("alice"));
     println!("Novo saldo de Bob: {}", balance.balance("bob"));
 
-    system.increment_block();
-    println!("Número do bloco atualizado: {}", system.get_block_number());
 
-    // Usando o nonce para evitar o aviso
-    println!("Nonce inicial: {}", system.get_nonce());
-    system.increment_nonce();
-    println!("Nonce atualizado: {}", system.get_nonce());
+    system.inc_block_number();
+    println!("Número do bloco atualizado: {}", system.block_number());
+
+    let alice = "alice".to_string();
+    println!("Nonce inicial de Alice: {}", system.get_nonce(&alice));
+    system.inc_nonce(&alice);
+    println!("Nonce atualizado de Alice: {}", system.get_nonce(&alice));
 }
