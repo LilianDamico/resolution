@@ -1,34 +1,48 @@
 mod balances;
 mod system;
-use balances::Pallet as BalancesPallet;
-use system::Pallet as SystemPallet;
+
+
+#[derive(Debug)]
+pub struct Runtime {
+    system: system::Pallet,
+    balances: balances::Pallet,
+}
+
+impl Runtime {
+
+    fn new() -> Self {
+        Self {
+            system: system::Pallet::new(),
+            balances: balances::Pallet::new(),
+        }
+    }
+}
 
 fn main() {
-    println!("Vai que é tua...");
-
-    let mut balance = BalancesPallet::new();
-    let mut system = SystemPallet::new();
-
-    balance.set_balance(&"alice".to_string(), 100);
-    balance.set_balance(&"bob".to_string(), 50);
-
-    println!("Saldo inicial de Alice: {}", balance.balance("alice"));
-    println!("Saldo inicial de Bob: {}", balance.balance("bob"));
-
-    match balance.transfer("alice".to_string(), "bob".to_string(), 30) {
-        Ok(_) => println!("Transferência bem-sucedida!"),
-        Err(err) => println!("Erro na transferência: {}", err),
-    }
-
-    println!("Novo saldo de Alice: {}", balance.balance("alice"));
-    println!("Novo saldo de Bob: {}", balance.balance("bob"));
-
-
-    system.inc_block_number();
-    println!("Número do bloco atualizado: {}", system.block_number());
+    let mut runtime = Runtime::new();
 
     let alice = "alice".to_string();
-    println!("Nonce inicial de Alice: {}", system.get_nonce(&alice));
-    system.inc_nonce(&alice);
-    println!("Nonce atualizado de Alice: {}", system.get_nonce(&alice));
+    let bob = "bob".to_string();
+    let charlie = "charlie".to_string();
+
+    runtime.balances.set_balance(&alice, 100);
+    println!("Saldo inicial de Alice: {}", runtime.balances.balance("alice"));
+
+    runtime.system.inc_block_number();
+    assert_eq!(runtime.system.block_number(), 1);
+    println!("Número do bloco: {}", runtime.system.block_number());
+
+    runtime.system.inc_nonce(&alice);
+    let _res = runtime.balances.transfer(alice.clone(), bob.clone(), 30).map_err(|e| eprintln!("{}", e));
+    println!("Saldo de Alice após transação 1: {}", runtime.balances.balance("alice"));
+    println!("Saldo de Bob após transação 1: {}", runtime.balances.balance("bob"));
+
+    runtime.system.inc_nonce(&alice);
+    let _res = runtime.balances.transfer(alice.clone(), charlie.clone(), 20).map_err(|e| eprintln!("{}", e));
+    println!("Saldo de Alice após transação 2: {}", runtime.balances.balance("alice"));
+    println!("Saldo de Charlie após transação 2: {}", runtime.balances.balance("charlie"));
+
+    println!("Nonce final de Alice: {}", runtime.system.get_nonce(&alice));
+
+    println!("{:#?}", runtime);
 }
