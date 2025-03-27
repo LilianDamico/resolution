@@ -1,12 +1,15 @@
 use num::traits::{CheckedAdd, CheckedSub, Zero};
 use std::collections::BTreeMap;
 
-/// Trait de configuração para o módulo de saldos.
-/// Herdando de `system::Config`, temos acesso ao tipo `AccountId`.
-pub trait Config: crate::system::Config {
-	type Balance: Zero + CheckedSub + CheckedAdd + Copy + PartialOrd;
+use crate::support::{Dispatch, DispatchResult};
+use crate::system;
+
+/// Trait de configuração para o pallet de saldos.
+pub trait Config: system::Config {
+	type Balance: Zero + CheckedAdd + CheckedSub + Copy + PartialOrd;
 }
 
+/// Estrutura do pallet de saldos.
 #[derive(Debug)]
 pub struct Pallet<T: Config> {
 	balances: BTreeMap<T::AccountId, T::Balance>,
@@ -32,22 +35,46 @@ impl<T: Config> Pallet<T> {
 		from: T::AccountId,
 		to: T::AccountId,
 		amount: T::Balance,
-	) -> Result<(), &'static str> {
+	) -> DispatchResult {
 		let from_balance = self.balance(&from);
-
-		if from_balance < amount {
-			return Err("Insufficient balance");
-		}
-
 		let to_balance = self.balance(&to);
 
-		let updated_from = from_balance.checked_sub(&amount).ok_or("Underflow")?;
-		let updated_to = to_balance.checked_add(&amount).ok_or("Overflow")?;
+		if amount > from_balance {
+			return Err("Insufficient Balance");
+		}
 
-		self.balances.insert(from, updated_from);
-		self.balances.insert(to, updated_to);
+		let new_from_balance = from_balance.checked_sub(&amount).ok_or("Underflow")?;
+		let new_to_balance = to_balance.checked_add(&amount).ok_or("Overflow")?;
+
+		self.set_balance(&from, new_from_balance);
+		self.set_balance(&to, new_to_balance);
 
 		Ok(())
+	}
+}
+
+/// Enum de chamadas possíveis do pallet de Balances.
+#[derive(Debug)]
+pub enum Call<T: Config> {
+	Transfer {
+		to: T::AccountId,
+		amount: T::Balance,
+	},
+}
+
+/// Implementação de Dispatch no nível do pallet.
+impl<T: Config> Dispatch for Pallet<T> {
+	type Caller = T::AccountId;
+	type Call = Call<T>;
+
+	fn dispatch(
+		&mut self,
+		caller: Self::Caller,
+		call: Self::Call,
+	) -> DispatchResult {
+		match call {
+			Call::Transfer { to, amount } => self.transfer(caller, to, amount),
+		}
 	}
 }
 
@@ -57,7 +84,7 @@ mod tests {
 
 	struct TestConfig;
 
-	impl crate::system::Config for TestConfig {
+	impl system::Config for TestConfig {
 		type AccountId = String;
 		type BlockNumber = u32;
 		type Nonce = u32;
@@ -68,18 +95,22 @@ mod tests {
 	}
 
 	#[test]
-	fn transfer_works() {
-		let mut pallet = Pallet::<TestConfig>::new();
-
+	fn test_transfer() {
+		let mut balances = Pallet::<TestConfig>::new();
 		let alice = "alice".to_string();
 		let bob = "bob".to_string();
 
-		pallet.set_balance(&alice, 100);
-		assert_eq!(pallet.balance(&alice), 100);
-		assert_eq!(pallet.balance(&bob), 0);
+		balances.set_balance(&alice, 100);
 
-		assert!(pallet.transfer(alice.clone(), bob.clone(), 30).is_ok());
-		assert_eq!(pallet.balance(&alice), 70);
-		assert_eq!(pallet.balance(&bob), 30);
+		let call = Call::<TestConfig>::Transfer {
+			to: bob.clone(),
+			amount: 30,
+		};
+
+		let result = balances.dispatch(alice.clone(), call);
+		assert!(result.is_ok());
+
+		assert_eq!(balances.balance(&alice), 70);
+		assert_eq!(balances.balance(&bob), 30);
 	}
 }

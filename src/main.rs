@@ -1,63 +1,122 @@
 mod balances;
 mod system;
+mod support;
+mod proof_of_existence;
 
-// Tipos concretos para esta máquina de estado simples.
-mod types {
-	pub type AccountId = String;
-	pub type Balance = u128;
-	pub type BlockNumber = u32;
-	pub type Nonce = u32;
+
+use balances::{Call as BalancesCall, Pallet as BalancesPallet};
+use support::{Block, Dispatch, DispatchResult, Extrinsic, Header};
+use system::Pallet as SystemPallet;
+
+// Todas as chamadas expostas pelo runtime.
+#[derive(Debug)]
+pub enum RuntimeCall {
+    Balances(BalancesCall<Runtime>),
 }
 
-use types::*;
-
+// Estrutura principal da runtime.
 #[derive(Debug)]
 pub struct Runtime {
-	system: system::Pallet<Self>,
-	balances: balances::Pallet<Self>,
+    pub system: SystemPallet<Self>,
+    pub balances: BalancesPallet<Self>,
 }
 
-// Implementando o trait Config do módulo System
+// Implementações de configuração dos pallets
 impl system::Config for Runtime {
-	type AccountId = AccountId;
-	type BlockNumber = BlockNumber;
-	type Nonce = Nonce;
+    type AccountId = String;
+    type BlockNumber = u32;
+    type Nonce = u32;
 }
 
-// Implementando o trait Config do módulo Balances
 impl balances::Config for Runtime {
-	type Balance = Balance;
+    type Balance = u128;
 }
 
 impl Runtime {
-	pub fn new() -> Self {
-		Self {
-			system: system::Pallet::new(),
-			balances: balances::Pallet::new(),
-		}
-	}
+    pub fn new() -> Self {
+        Self {
+            system: SystemPallet::new(),
+            balances: BalancesPallet::new(),
+        }
+    }
+
+    pub fn execute_block(
+        &mut self,
+        block: Block<Header<u32>, Extrinsic<String, RuntimeCall>>,
+    ) -> DispatchResult {
+        self.system.inc_block_number();
+
+        if block.header.block_number != self.system.block_number() {
+            return Err("Block number mismatch");
+        }
+
+        for (i, Extrinsic { caller, call }) in block.extrinsics.into_iter().enumerate() {
+            self.system.inc_nonce(&caller);
+
+            let result = self.dispatch(caller.clone(), call);
+            if let Err(e) = result {
+                eprintln!(
+                    "Extrinsic Error\n\tBlock Number: {}\n\tExtrinsic Index: {}\n\tError: {}",
+                    block.header.block_number,
+                    i,
+                    e
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// Delegação de dispatch do runtime para os pallets.
+impl Dispatch for Runtime {
+    type Caller = String;
+    type Call = RuntimeCall;
+
+    fn dispatch(
+        &mut self,
+        caller: Self::Caller,
+        runtime_call: Self::Call,
+    ) -> DispatchResult {
+        match runtime_call {
+            RuntimeCall::Balances(call) => {
+                self.balances.dispatch(caller, call)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 fn main() {
-	let mut runtime = Runtime::new();
+    let mut runtime = Runtime::new();
 
-	let alice = "alice".to_string();
-	let bob = "bob".to_string();
-	let charlie = "charlie".to_string();
+    let alice = String::from("alice");
+    let bob = String::from("bob");
+    let charlie = String::from("charlie");
 
-	runtime.balances.set_balance(&alice, 100);
+    runtime.balances.set_balance(&alice, 100);
 
-	runtime.system.inc_block_number();
-	assert_eq!(runtime.system.block_number(), 1);
+    let block = Block {
+        header: Header { block_number: 1 },
+        extrinsics: vec![
+            Extrinsic {
+                caller: alice.clone(),
+                call: RuntimeCall::Balances(BalancesCall::Transfer {
+                    to: bob.clone(),
+                    amount: 20,
+                }),
+            },
+            Extrinsic {
+                caller: alice.clone(),
+                call: RuntimeCall::Balances(BalancesCall::Transfer {
+                    to: charlie.clone(),
+                    amount: 20,
+                }),
+            },
+        ],
+    };
 
-	runtime.system.inc_nonce(&alice);
-	let _ = runtime.balances.transfer(alice.clone(), bob.clone(), 30)
-		.map_err(|e| eprintln!("Erro ao transferir: {}", e));
+    runtime.execute_block(block).expect("Invalid block");
 
-	runtime.system.inc_nonce(&alice);
-	let _ = runtime.balances.transfer(alice.clone(), charlie.clone(), 20)
-		.map_err(|e| eprintln!("Erro ao transferir: {}", e));
-
-		println!("Nonce final de Alice: {}", runtime.system.get_nonce(&alice));
-
+    println!("{:#?}", runtime);
 }
