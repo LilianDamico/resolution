@@ -1,39 +1,54 @@
-// src/system.rs
+use std::collections::HashMap;
 
-use core::ops::AddAssign;
-use num::traits::{One, Zero};
-use std::collections::BTreeMap;
+#[derive(Debug, Clone)]
+pub struct AccountInfo {
+    pub nonce: u64,
+    pub block_number: u64,
+}
 
-pub trait Config {
-    type AccountId: Ord + Clone;
-    type BlockNumber: Copy + Zero + One + AddAssign + PartialEq;
-    type Nonce: Copy + Zero + One;
+impl AccountInfo {
+    pub fn new() -> Self {
+        AccountInfo {
+            nonce: 0,
+            block_number: 0,
+        }
+    }
 }
 
 #[derive(Debug)]
-pub struct Pallet<T: Config> {
-    block_number: T::BlockNumber,
-    nonce: BTreeMap<T::AccountId, T::Nonce>,
+pub struct System {
+    pub accounts: HashMap<String, AccountInfo>,
+    pub current_block: u64,
 }
 
-impl<T: Config> Pallet<T> {
+impl System {
     pub fn new() -> Self {
-        Self {
-            block_number: T::BlockNumber::zero(),
-            nonce: BTreeMap::new(),
+        System {
+            accounts: HashMap::new(),
+            current_block: 0,
         }
     }
 
-    pub fn block_number(&self) -> T::BlockNumber {
-        self.block_number
+    pub fn register_account(&mut self, account_id: String) {
+        self.accounts
+            .entry(account_id)
+            .or_insert(AccountInfo::new());
     }
 
-    pub fn inc_block_number(&mut self) {
-        self.block_number += T::BlockNumber::one();
+    pub fn increment_block(&mut self) {
+        self.current_block += 1;
     }
 
-    pub fn inc_nonce(&mut self, who: &T::AccountId) {
-        let count = self.nonce.get(who).copied().unwrap_or_else(T::Nonce::zero);
-        self.nonce.insert(who.clone(), count + T::Nonce::one());
+    pub fn increment_nonce(&mut self, account_id: &str) -> Result<(), &'static str> {
+        if let Some(account) = self.accounts.get_mut(account_id) {
+            account.nonce += 1;
+            Ok(())
+        } else {
+            Err("Conta não encontrada")
+        }
+    }
+
+    pub fn get_account_info(&self, account_id: &str) -> Option<&AccountInfo> {
+        self.accounts.get(account_id)
     }
 }

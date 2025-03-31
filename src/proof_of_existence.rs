@@ -1,91 +1,27 @@
-use crate::support::DispatchResult;
-use core::fmt::Debug;
-use std::collections::BTreeMap;
-
-pub trait Config: crate::system::Config {
-	
-	type Content: Debug + Ord;
+pub trait Config {
+    type AccountId;
+    type Event;
 }
 
-
-#[derive(Debug)]
-pub struct Pallet<T: Config> {
-	
-	claims: BTreeMap<T::Content, T::AccountId>,
+#[derive(Default)]
+pub struct Proofs<T: Config> {
+    pub dados: std::collections::BTreeMap<Vec<u8>, T::AccountId>,
 }
 
-impl<T: Config> Pallet<T> {
-	/// Create a new instance of the Proof of Existence Module.
-	pub fn new() -> Self {
-		Self { claims: BTreeMap::new() }
-	}
+impl<T: Config> Proofs<T>
+where
+    T::AccountId: Ord + Clone,
+{
+    pub fn registrar(&mut self, dado: Vec<u8>, quem: T::AccountId) -> bool {
+        if self.dados.contains_key(&dado) {
+            false
+        } else {
+            self.dados.insert(dado, quem);
+            true
+        }
+    }
 
-	
-	pub fn get_claim(&self, claim: &T::Content) -> Option<&T::AccountId> {
-		self.claims.get(claim)
-	}
-
-	
-	pub fn create_claim(&mut self, caller: T::AccountId, claim: T::Content) -> DispatchResult {
-		if self.claims.contains_key(&claim) {
-			return Err("this content is already claimed");
-		}
-		self.claims.insert(claim, caller);
-		Ok(())
-	}
-
-	
-	pub fn revoke_claim(&mut self, caller: T::AccountId, claim: T::Content) -> DispatchResult {
-		let owner = self.get_claim(&claim).ok_or("no claim found")?;
-		if owner != &caller {
-			return Err("not the owner of the claim");
-		}
-		self.claims.remove(&claim);
-		Ok(())
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-
-	struct TestConfig;
-
-	impl super::Config for TestConfig {
-		type Content = &'static str;
-	}
-
-	impl crate::system::Config for TestConfig {
-		type AccountId = &'static str;
-		type BlockNumber = u32;
-		type Nonce = u32;
-	}
-
-	#[test]
-	fn basic_proof_of_existence() {
-		let mut poe = Pallet::<TestConfig>::new();
-		let alice = "alice";
-		let bob = "bob";
-		let claim = "claim_data";
-
-		
-		assert_eq!(poe.get_claim(&claim), None);
-
-		
-		assert!(poe.create_claim(alice, claim).is_ok());
-		assert_eq!(poe.get_claim(&claim), Some(&"alice"));
-
-	
-		assert!(poe.create_claim(bob, claim).is_err());
-
-		
-		assert!(poe.revoke_claim(bob, claim).is_err());
-
-		
-		assert!(poe.revoke_claim(alice, claim).is_ok());
-		assert_eq!(poe.get_claim(&claim), None);
-
-		
-		assert!(poe.revoke_claim(alice, claim).is_err());
-	}
+    pub fn verificar(&self, dado: &Vec<u8>) -> Option<&T::AccountId> {
+        self.dados.get(dado)
+    }
 }
