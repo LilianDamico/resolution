@@ -1,0 +1,64 @@
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'resolution'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=resolution"
+                ],
+                "filter": {
+                    "name": "resolution",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'resolution'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=resolution",
+                    "--package=resolution"
+                ],
+                "filter": {
+                    "name": "resolution",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'resolution'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=resolution",
+                    "--package=resolution"
+                ],
+                "filter": {
+                    "name": "resolution",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,9 +1,11 @@
-mod parse;
-mod expand;
+// macros/src/call/mod.rs
 
-use proc_macro2::TokenStream;
+pub mod expand;
+pub mod parse;
 
-/// Esta função é chamada diretamente pela macro #[macros::call]
+use proc_macro::TokenStream;
+
+/// Chamado pela macro #[macros::call]
 pub fn call_macro(item: TokenStream) -> TokenStream {
     expand::expand_call(item)
 }

@@ -1,24 +1,16 @@
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use proc_macro2::TokenStream;
-use crate::call::parse::CallArgs;
+use syn::{parse_macro_input, ItemImpl};
 
-/// Função responsável por gerar código a partir dos dados analisados pela macro
 pub fn expand_call(item: TokenStream) -> TokenStream {
-    // Usa a função parse de CallArgs para extrair dados da função original
-    let args: CallArgs = syn::parse2(item.clone()).unwrap();
-    let name = args.name;
+    let item_proc_macro: TokenStream2 = item.into();
+    let ast: ItemImpl = parse_macro_input!(item_proc_macro as ItemImpl);
 
-    // Gera um nome de enum usando o nome da função
-    let enum_name = quote::format_ident!("{}", name.to_string().to_uppercase());
+    // Aqui você insere a lógica de expansão real
+    let expanded = quote! {
+        #ast
+    };
 
-    // Gera um novo TokenStream com a definição do enum + função original
-    quote! {
-        // Define uma enumeração com a função como uma variante
-        pub enum Call {
-            #enum_name,
-        }
-
-        // Reinsere a função original no código compilado
-        #item
-    }
+    TokenStream::from(expanded)
 }
